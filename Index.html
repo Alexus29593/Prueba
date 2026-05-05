@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    body { background-color: #2d4174; padding: 50px 20px; font-family: 'Montserrat', sans-serif; color: #fff; }
+    .filter-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 15px; padding: 30px; margin-bottom: 50px; border: 1px solid rgba(255, 255, 255, 0.2); max-width: 900px; margin-left: auto; margin-right: auto; }
+    .form-select { background-color: white; border-radius: 8px; padding: 12px; font-weight: 500; border: none; }
+    .unit-card { background: white; border: none; border-radius: 15px; overflow: hidden; transition: 0.3s; color: #333; height: 100%; cursor: pointer; }
+    .unit-card:hover { transform: translateY(-8px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+    .card-img-top { height: 220px; object-fit: cover; }
+    .price-tag { font-size: 1.25rem; color: #2d4174; font-weight: 600; border-top: 1px solid #f0f0f0; padding-top: 15px; margin-top: 5px; }
+    .modal-content { border-radius: 15px; overflow: hidden; border: none; color: #333; }
+    .img-full { width: 100%; max-height: 65vh; object-fit: contain; background: #f8f9fa; }
+    .modal-info-footer { padding: 25px; background: #fff; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+    .info-item b { color: #2d4174; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="container text-center">
+    <div class="filter-card shadow">
+      <div class="row g-4 text-start">
+        <div class="col-md-4"><label class="small fw-bold text-uppercase mb-2 d-block">Torre</label><select id="selTorre" class="form-select" onchange="filtrar()"><option value="">Todas</option></select></div>
+        <div class="col-md-4"><label class="small fw-bold text-uppercase mb-2 d-block">Recámaras</label><select id="selRec" class="form-select" onchange="filtrar()"><option value="">Todas</option></select></div>
+        <div class="col-md-4"><label class="small fw-bold text-uppercase mb-2 d-block">Vista</label><select id="selVis" class="form-select" onchange="filtrar()"><option value="">Todas</option></select></div>
+      </div>
+    </div>
+    <div id="gridContainer" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4"></div>
+  </div>
+
+  <div class="modal fade" id="imgModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body p-0">
+          <img id="imgFull" src="" class="img-full">
+          <div class="modal-info-footer text-start">
+            <h4 id="mTitle" class="fw-bold mb-1" style="color: #2d4174;"></h4>
+            <div class="info-grid">
+              <div class="info-item"><b>Modelo</b><span id="mModelo"></span></div>
+              <div class="info-item"><b>Metraje</b><span id="mM2"></span> m2</div>
+              <div class="info-item"><b>Vista</b><span id="mVista"></span></div>
+              <div class="info-item"><b>Configuración</b><span id="mRec"></span> Recámaras</div>
+            </div>
+            <div class="price-tag mt-3" id="mPrecio" style="border-top: 1px solid #eee;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let db = [];
+    const imageModal = new bootstrap.Modal(document.getElementById('imgModal'));
+
+    function init() {
+      google.script.run.withSuccessHandler(data => {
+        db = data;
+        const sT = document.getElementById('selTorre');
+        const sR = document.getElementById('selRec');
+        const sV = document.getElementById('selVis');
+        [...new Set(data.map(i => i.torre))].sort().forEach(t => sT.innerHTML += `<option value="${t}">${t}</option>`);
+        [...new Set(data.map(i => i.recamaras))].sort().forEach(r => sR.innerHTML += `<option value="${r}">${r} Rec.</option>`);
+        [...new Set(data.map(i => i.vista))].sort().forEach(v => sV.innerHTML += `<option value="${v}">${v}</option>`);
+        filtrar();
+      }).getInventoryData();
+    }
+
+    function filtrar() {
+      const t = document.getElementById('selTorre').value;
+      const r = document.getElementById('selRec').value;
+      const v = document.getElementById('selVis').value;
+      const res = db.filter(i => (t==="" || i.torre===t) && (r==="" || i.recamaras.toString()===r) && (v==="" || i.vista===v));
+      
+      document.getElementById('gridContainer').innerHTML = res.map((i, index) => `
+        <div class="col">
+          <div class="unit-card shadow" onclick="abrirDetalle(${db.indexOf(i)})">
+            <img src="${i.imagen}" class="card-img-top">
+            <div class="card-body">
+              <div class="fw-bold text-primary mb-1">${i.torre} - ${i.unidad}</div>
+              <div class="small text-muted mb-2">${i.modelo} • ${i.m2} m2 • ${i.vista}</div>
+              <div class="price-tag">${i.precio}</div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function abrirDetalle(index) {
+      const item = db[index];
+      document.getElementById('imgFull').src = item.imagen;
+      document.getElementById('mTitle').innerText = `${item.torre} - ${item.unidad}`;
+      document.getElementById('mModelo').innerText = item.modelo;
+      document.getElementById('mM2').innerText = item.m2;
+      document.getElementById('mVista').innerText = item.vista;
+      document.getElementById('mRec').innerText = item.recamaras;
+      document.getElementById('mPrecio').innerText = item.precio;
+      imageModal.show();
+    }
+    window.onload = init;
+  </script>
+</body>
+</html>
